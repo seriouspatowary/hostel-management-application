@@ -1,5 +1,6 @@
 'use client';
 
+import Image from 'next/image';
 import { useState, ChangeEvent, FormEvent } from 'react';
 
 interface FormData {
@@ -90,10 +91,10 @@ export default function RegistrationForm() {
     }
 
     if (!formData.parentName.trim()) {
-      newErrors.parentName = "Parent's name is required";
+      newErrors.parentName = "Parents name is required";
     }
     if (!formData.parentNumber.trim()) {
-      newErrors.parentNumber = "Parent's number is required";
+      newErrors.parentNumber = "Parents number is required";
     } else if (!/^\d{10}$/.test(formData.parentNumber)) {
       newErrors.parentNumber = 'Parent number must be 10 digits';
     }
@@ -270,7 +271,7 @@ export default function RegistrationForm() {
                 </label>
                 <div className="flex items-center space-x-4">
                   {photoPreview && (
-                    <img
+                    <Image
                       src={photoPreview}
                       alt="Preview"
                       className="w-20 h-20 rounded-full object-cover border-2 border-gray-300"
@@ -360,7 +361,7 @@ export default function RegistrationForm() {
                 
                 <div>
                   <label htmlFor="parentName" className="block text-sm font-medium text-gray-700 mb-2">
-                    Parent's Name <span className="text-red-500">*</span>
+                    Parents Name <span className="text-red-500">*</span>
                   </label>
                   <input
                     type="text"
@@ -377,7 +378,7 @@ export default function RegistrationForm() {
 
                 <div>
                   <label htmlFor="parentNumber" className="block text-sm font-medium text-gray-700 mb-2">
-                    Parent's Number <span className="text-red-500">*</span>
+                    Parents Number <span className="text-red-500">*</span>
                   </label>
                   <input
                     type="tel"

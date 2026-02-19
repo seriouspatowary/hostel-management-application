@@ -3,6 +3,21 @@ import { connectToDatabase } from "@/lib/mongodb";
 import Room from "@/models/Room";
 import Hostel from "@/models/Hostel";
 import { checkAuth } from "@/lib/checkAuth";
+import { Types } from "mongoose";
+
+
+interface PopulatedRoom {
+  _id: Types.ObjectId;
+  roomNo: string;
+  seatAllocate: number;
+  bookRoom?: number;
+  seatNumbers: Map<string, number>;
+  hostelId: {
+    _id: Types.ObjectId;
+    name: string;
+  } | null;
+}
+
 
 // GET - Fetch Hostels with their Rooms and Seat Count
 export async function GET() {
@@ -25,16 +40,17 @@ export async function GET() {
 
     // Group rooms under their hostel
     const result = hostels.map((hostel) => {
-      const hostelRooms = rooms.filter(
-        (room: any) =>
+      const hostelRooms = (rooms as PopulatedRoom[]).filter(
+        (room) =>
           room.hostelId &&
           room.hostelId._id.toString() === hostel._id.toString()
       );
 
+
       return {
         hostelId: hostel._id,
         hostelName: hostel.name,
-        rooms: hostelRooms.map((room: any) => ({
+        rooms: hostelRooms.map((room: PopulatedRoom) => ({
           roomId: room._id,
           roomNo: room.roomNo,
           seatAllocate: room.seatAllocate,

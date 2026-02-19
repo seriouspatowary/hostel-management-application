@@ -5,6 +5,99 @@ import AllocateRoom from "@/models/AllocateRoom";
 
 import HostelBoarder from "@/models/HostelBoarder";
 import { connectToDatabase } from "@/lib/mongodb";
+import { Types } from "mongoose";
+
+
+
+
+interface BoarderType {
+  _id: Types.ObjectId;
+  name: string;
+  email: string;
+  phone: string;
+  parentName: string;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+interface BoarderWithAllocation extends BoarderType {
+  isAllocated: boolean;
+}
+
+// GET - Fetch Boarders with Pagination + Search + Allocation Status
+export async function GET(req: NextRequest) {
+  try {
+    await connectToDatabase();
+
+    const { searchParams } = new URL(req.url);
+
+    const page = Number(searchParams.get("page")) || 1;
+    const limit = Number(searchParams.get("limit")) || 10;
+    const search = searchParams.get("search") || "";
+
+    const skip = (page - 1) * limit;
+
+    // 🔍 Search condition
+    const searchQuery =
+      search.trim() !== ""
+        ? {
+            $or: [
+              { name: { $regex: search, $options: "i" } },
+              { email: { $regex: search, $options: "i" } },
+              { phone: { $regex: search, $options: "i" } },
+              { parentName: { $regex: search, $options: "i" } },
+            ],
+          }
+        : {};
+
+    // 🔢 Total count
+    const total = await HostelBoarder.countDocuments(searchQuery);
+
+    // 📄 Fetch boarders
+    const boarders = await HostelBoarder.find(searchQuery)
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(limit)
+      .lean<BoarderType[]>();
+
+    // 🏠 Get allocated boarder IDs (only active allocations)
+    const allocatedBoarders = await AllocateRoom.find({
+      isAllocate: true,
+    })
+      .select("boarderId")
+      .lean();
+
+    const allocatedIds = new Set(
+      allocatedBoarders.map((a) => a.boarderId.toString())
+    );
+
+    // ✅ Attach isAllocated field
+    const updatedBoarders: BoarderWithAllocation[] = boarders.map(
+      (boarder) => ({
+        ...boarder,
+        isAllocated: allocatedIds.has(boarder._id.toString()),
+      })
+    );
+
+    return NextResponse.json({
+      success: true,
+      data: updatedBoarders,
+      pagination: {
+        total,
+        page,
+        limit,
+        totalPages: Math.ceil(total / limit),
+      },
+    });
+  } catch (error) {
+    console.error("Error fetching hostel boarders:", error);
+
+    return NextResponse.json(
+      { success: false, message: "Failed to fetch hostel boarders" },
+      { status: 500 }
+    );
+  }
+}
 
 // POST: Register Hostel Boarder
 export async function POST(req: Request) {
@@ -109,72 +202,3 @@ export async function POST(req: Request) {
 
 
 
-// GET - Fetch Boarders with Pagination + Search + Allocation Status
-export async function GET(req: NextRequest) {
-  try {
-    await connectToDatabase();
-
-    const { searchParams } = new URL(req.url);
-
-    const page = Number(searchParams.get("page")) || 1;
-    const limit = Number(searchParams.get("limit")) || 10;
-    const search = searchParams.get("search") || "";
-
-    const skip = (page - 1) * limit;
-
-    // 🔍 Search condition
-    const searchQuery = search
-      ? {
-          $or: [
-            { name: { $regex: search, $options: "i" } },
-            { email: { $regex: search, $options: "i" } },
-            { phone: { $regex: search, $options: "i" } },
-            { parentName: { $regex: search, $options: "i" } },
-          ],
-        }
-      : {};
-
-    // Total count
-    const total = await HostelBoarder.countDocuments(searchQuery);
-
-    // Fetch boarders
-    const boarders = await HostelBoarder.find(searchQuery)
-      .sort({ createdAt: -1 })
-      .skip(skip)
-      .limit(limit)
-      .lean(); // 🔥 important for modifying data
-
-    // 🔥 Get allocated boarder IDs (only active allocations)
-    const allocatedBoarders = await AllocateRoom.find({
-      isAllocate: true,
-    }).select("boarderId");
-
-    const allocatedIds = new Set(
-      allocatedBoarders.map((a) => a.boarderId.toString())
-    );
-
-    // 🔥 Attach isAllocated field
-    const updatedBoarders = boarders.map((boarder: any) => ({
-      ...boarder,
-      isAllocated: allocatedIds.has(boarder._id.toString()),
-    }));
-
-    return NextResponse.json({
-      success: true,
-      data: updatedBoarders,
-      pagination: {
-        total,
-        page,
-        limit,
-        totalPages: Math.ceil(total / limit),
-      },
-    });
-
-  } catch (error) {
-    console.error("Error fetching hostel boarders:", error);
-    return NextResponse.json(
-      { success: false, message: "Failed to fetch hostel boarders" },
-      { status: 500 }
-    );
-  }
-}
